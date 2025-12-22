@@ -36,8 +36,8 @@ jobs:
           uv build
           ls -lh dist/
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: ./dist
-          attestations: true
+      # - name: Publish to PyPI
+      #   uses: pypa/gh-action-pypi-publish@release/v1
+      #   with:
+      #     packages-dir: ./dist
+      #     attestations: true
