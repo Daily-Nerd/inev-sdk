@@ -1,0 +1,193 @@
+"""INEV SDK Client for domain event capture."""
+
+import asyncio
+import uuid
+from datetime import UTC, datetime
+from typing import Optional
+
+import httpx
+
+
+class INEVClient:
+    """INEV SDK for domain event capture.
+
+    Features:
+    - Async-first design with httpx
+    - Automatic batching with configurable size and interval
+    - Background flush task for time-based flushing
+    - Graceful shutdown with pending event flush
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str = "https://api.inev.io",
+        environment: str = "production",
+        auto_batch: bool = True,
+        batch_size: int = 100,
+        flush_interval: float = 5.0,
+        sync_mode: bool = False,
+    ):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.environment = environment
+        self._session: Optional[httpx.AsyncClient] = None
+        self._sync_session: Optional[httpx.Client] = None if not sync_mode else httpx.Client()
+        self._batch: list[dict] = []
+        self._auto_batch = auto_batch
+        self._batch_size = batch_size
+        self._flush_interval = flush_interval
+        self._flush_task: Optional[asyncio.Task] = None
+        self._running = False
+        self._lock = asyncio.Lock()
+
+    async def __aenter__(self):
+        await self.start()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+    async def start(self):
+        """Start the client and background flush task."""
+        if self._running:
+            return
+        self._running = True
+        self._session = httpx.AsyncClient()
+        if self._auto_batch and self._flush_interval > 0:
+            self._flush_task = asyncio.create_task(self._background_flush())
+
+    async def _background_flush(self):
+        """Background task that flushes events at regular intervals."""
+        while self._running:
+            try:
+                await asyncio.sleep(self._flush_interval)
+                if self._batch:
+                    await self.flush()
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                pass  # Log but don't crash
+
+    async def emit(
+        self,
+        entity: str,
+        action: str,
+        record_id: Optional[str] = None,
+        from_state: Optional[str] = None,
+        to_state: Optional[str] = None,
+        outcome: str = "success",
+        error_message: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        parameters: Optional[dict] = None,
+        **kwargs,
+    ) -> str:
+        """Emit a domain event (async)."""
+        event_id = str(uuid.uuid4())
+        event = {
+            "event_id": event_id,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "entity": entity,
+            "action": action,
+            "record_id": record_id,
+            "from_state": from_state,
+            "to_state": to_state,
+            "outcome": outcome,
+            "error_message": error_message,
+            "user_id": user_id,
+            "session_id": session_id,
+            "parameters": parameters or {},
+            "environment": self.environment,
+            **kwargs,
+        }
+
+        if self._auto_batch:
+            async with self._lock:
+                self._batch.append(event)
+                if len(self._batch) >= self._batch_size:
+                    await self._flush_locked()
+        else:
+            await self._send([event])
+
+        return event_id
+
+    def emit_sync(
+        self,
+        entity: str,
+        action: str,
+        record_id: Optional[str] = None,
+        from_state: Optional[str] = None,
+        to_state: Optional[str] = None,
+        outcome: str = "success",
+        error_message: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        parameters: Optional[dict] = None,
+        **kwargs,
+    ) -> str:
+        """Emit a domain event (sync - for serverless environments)."""
+        if not self._sync_session:
+            raise RuntimeError("Sync mode not enabled. Initialize with sync_mode=True")
+
+        event_id = str(uuid.uuid4())
+        event = {
+            "event_id": event_id,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "entity": entity,
+            "action": action,
+            "record_id": record_id,
+            "from_state": from_state,
+            "to_state": to_state,
+            "outcome": outcome,
+            "error_message": error_message,
+            "user_id": user_id,
+            "session_id": session_id,
+            "parameters": parameters or {},
+            "environment": self.environment,
+            **kwargs,
+        }
+
+        self._sync_session.post(
+            f"{self.base_url}/api/v1/events/", json={"events": [event]}, headers={"X-API-Key": self.api_key}
+        )
+
+        return event_id
+
+    async def flush(self):
+        """Send batched events."""
+        async with self._lock:
+            await self._flush_locked()
+
+    async def _flush_locked(self):
+        """Flush while already holding the lock."""
+        if self._batch:
+            batch = self._batch
+            self._batch = []
+            await self._send(batch)
+
+    async def _send(self, events: list[dict]):
+        """Send events to INEV API."""
+        if not self._session:
+            self._session = httpx.AsyncClient()
+        await self._session.post(
+            f"{self.base_url}/api/v1/events/", json={"events": events}, headers={"X-API-Key": self.api_key}
+        )
+
+    async def close(self):
+        """Stop background flush, flush pending events, close client."""
+        self._running = False
+
+        if self._flush_task:
+            self._flush_task.cancel()
+            try:
+                await self._flush_task
+            except asyncio.CancelledError:
+                pass
+
+        await self.flush()
+
+        if self._session:
+            await self._session.aclose()
+        if self._sync_session:
+            self._sync_session.close()
