@@ -32,8 +32,6 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://inev.io"
-Documentation = "https://docs.inev.io"
 Repository = "https://github.com/Daily-Nerd/inev-sdk"
 Issues = "https://github.com/Daily-Nerd/inev-sdk/issues"
 
