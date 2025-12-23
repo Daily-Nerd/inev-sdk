@@ -112,6 +112,82 @@ class INEVClient:
 
         return event_id
 
+    async def track(
+        self,
+        action: str,
+        outcome: str = "success",
+        *,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        error_message: Optional[str] = None,
+        parameters: Optional[dict] = None,
+        entity: Optional[str] = None,
+        from_state: Optional[str] = None,
+        to_state: Optional[str] = None,
+        record_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        **kwargs,
+    ) -> str:
+        """Track an auto-instrumented event (entity optional, enriched server-side).
+
+        This method is designed for auto-instrumentation use cases where entity/record_id
+        may not be known at capture time and will be enriched by the server.
+
+        For manual domain events where entity is known, use emit() instead.
+
+        Args:
+            action: Action name (e.g., "create_project", "delete_user")
+            outcome: Event outcome - "success", "error", or "partial"
+            user_id: Optional user identifier
+            session_id: Optional session identifier
+            error_message: Error message if outcome is "error"
+            parameters: Optional event parameters (captures request/response data)
+            entity: Optional entity name (if None, enriched server-side)
+            from_state: Optional source state
+            to_state: Optional target state
+            record_id: Optional record identifier (if None, enriched server-side)
+            timestamp: Optional timestamp (defaults to now)
+            **kwargs: Additional fields passed through to API
+
+        Returns:
+            Event ID (UUID string)
+        """
+        event_id = str(uuid.uuid4())
+        event_timestamp = timestamp or datetime.now(UTC)
+
+        event = {
+            "event_id": event_id,
+            "timestamp": event_timestamp.isoformat(),
+            "action": action,
+            "outcome": outcome,
+            "error_message": error_message,
+            "user_id": user_id,
+            "session_id": session_id,
+            "parameters": parameters or {},
+            "environment": self.environment,
+            **kwargs,
+        }
+
+        # Add optional fields only if provided (server will enrich if missing)
+        if entity is not None:
+            event["entity"] = entity
+        if record_id is not None:
+            event["record_id"] = record_id
+        if from_state is not None:
+            event["from_state"] = from_state
+        if to_state is not None:
+            event["to_state"] = to_state
+
+        if self._auto_batch:
+            async with self._lock:
+                self._batch.append(event)
+                if len(self._batch) >= self._batch_size:
+                    await self._flush_locked()
+        else:
+            await self._send([event])
+
+        return event_id
+
     def emit_sync(
         self,
         entity: str,
