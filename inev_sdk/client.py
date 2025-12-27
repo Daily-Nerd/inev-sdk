@@ -3,9 +3,11 @@
 import asyncio
 import uuid
 from datetime import UTC, datetime
-from typing import Optional
 
 import httpx
+
+# SDK identifier sent with all events
+SDK_SOURCE = "inev-python-sdk"
 
 
 class INEVClient:
@@ -31,13 +33,13 @@ class INEVClient:
         self.api_key = api_key
         self.base_url = base_url
         self.environment = environment
-        self._session: Optional[httpx.AsyncClient] = None
-        self._sync_session: Optional[httpx.Client] = None if not sync_mode else httpx.Client()
+        self._session: httpx.AsyncClient | None = None
+        self._sync_session: httpx.Client | None = None if not sync_mode else httpx.Client()
         self._batch: list[dict] = []
         self._auto_batch = auto_batch
         self._batch_size = batch_size
         self._flush_interval = flush_interval
-        self._flush_task: Optional[asyncio.Task] = None
+        self._flush_task: asyncio.Task | None = None
         self._running = False
         self._lock = asyncio.Lock()
 
@@ -73,14 +75,15 @@ class INEVClient:
         self,
         entity: str,
         action: str,
-        record_id: Optional[str] = None,
-        from_state: Optional[str] = None,
-        to_state: Optional[str] = None,
+        record_id: str | None = None,
+        from_state: str | None = None,
+        to_state: str | None = None,
         outcome: str = "success",
-        error_message: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        parameters: Optional[dict] = None,
+        error_message: str | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        parameters: dict | None = None,
+        source: str | None = None,
         **kwargs,
     ) -> str:
         """Emit a domain event (async)."""
@@ -99,6 +102,7 @@ class INEVClient:
             "session_id": session_id,
             "parameters": parameters or {},
             "environment": self.environment,
+            "source": source or SDK_SOURCE,  # Default to SDK identifier
             **kwargs,
         }
 
@@ -117,15 +121,16 @@ class INEVClient:
         action: str,
         outcome: str = "success",
         *,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        error_message: Optional[str] = None,
-        parameters: Optional[dict] = None,
-        entity: Optional[str] = None,
-        from_state: Optional[str] = None,
-        to_state: Optional[str] = None,
-        record_id: Optional[str] = None,
-        timestamp: Optional[datetime] = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        error_message: str | None = None,
+        parameters: dict | None = None,
+        entity: str | None = None,
+        from_state: str | None = None,
+        to_state: str | None = None,
+        record_id: str | None = None,
+        timestamp: datetime | None = None,
+        source: str | None = None,
         **kwargs,
     ) -> str:
         """Track an auto-instrumented event (entity optional, enriched server-side).
@@ -165,6 +170,7 @@ class INEVClient:
             "session_id": session_id,
             "parameters": parameters or {},
             "environment": self.environment,
+            "source": source or SDK_SOURCE,  # Default to SDK identifier
             **kwargs,
         }
 
@@ -192,14 +198,15 @@ class INEVClient:
         self,
         entity: str,
         action: str,
-        record_id: Optional[str] = None,
-        from_state: Optional[str] = None,
-        to_state: Optional[str] = None,
+        record_id: str | None = None,
+        from_state: str | None = None,
+        to_state: str | None = None,
         outcome: str = "success",
-        error_message: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        parameters: Optional[dict] = None,
+        error_message: str | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        parameters: dict | None = None,
+        source: str | None = None,
         **kwargs,
     ) -> str:
         """Emit a domain event (sync - for serverless environments)."""
@@ -221,6 +228,7 @@ class INEVClient:
             "session_id": session_id,
             "parameters": parameters or {},
             "environment": self.environment,
+            "source": source or SDK_SOURCE,  # Default to SDK identifier
             **kwargs,
         }
 

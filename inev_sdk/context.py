@@ -1,7 +1,5 @@
 """Context manager for tracking state transitions."""
 
-from typing import Optional
-
 from .client import INEVClient
 from .decorators import _get_global_client
 
@@ -12,19 +10,19 @@ class InstrumentationContext:
     def __init__(
         self,
         entity: str,
-        record_id: Optional[str] = None,
-        from_state: Optional[str] = None,
+        record_id: str | None = None,
+        from_state: str | None = None,
         action: str = "state_transition",
-        client: Optional[INEVClient] = None,
+        client: INEVClient | None = None,
     ):
         self.entity = entity
         self.record_id = record_id
         self.from_state = from_state
         self.action = action
         self._client = client or _get_global_client()
-        self.to_state: Optional[str] = None
+        self.to_state: str | None = None
         self.outcome = "success"
-        self.error_message: Optional[str] = None
+        self.error_message: str | None = None
 
     def set_to_state(self, state: str):
         """Set the target state."""

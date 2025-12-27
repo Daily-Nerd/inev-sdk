@@ -20,7 +20,6 @@ Algorithm:
 
 import re
 
-
 # Regex patterns for identifying ID segments
 UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 NUMERIC_ID_PATTERN = re.compile(r"^\d+$")
@@ -51,10 +50,7 @@ def is_id_segment(segment: str) -> bool:
     if NUMERIC_ID_PATTERN.match(segment):
         return True
 
-    if PREFIXED_ID_PATTERN.match(segment):
-        return True
-
-    return False
+    return bool(PREFIXED_ID_PATTERN.match(segment))
 
 
 def singularize(word: str) -> str:

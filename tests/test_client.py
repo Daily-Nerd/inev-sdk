@@ -3,7 +3,6 @@
 import sys
 from pathlib import Path
 
-
 # Add parent directory to path to import inev_sdk
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -11,6 +10,7 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from inev_sdk import INEVClient, InstrumentationContext
 
 

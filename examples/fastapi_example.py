@@ -9,9 +9,9 @@ Run with:
 """
 
 from fastapi import FastAPI, HTTPException
-from inev_sdk.integrations.fastapi import INEVMiddleware
 from pydantic import BaseModel
 
+from inev_sdk.integrations.fastapi import INEVMiddleware
 
 # Create FastAPI app
 app = FastAPI(title="Order Management API")
