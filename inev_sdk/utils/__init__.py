@@ -7,7 +7,6 @@ from .action_naming import (
     singularize,
 )
 
-
 __all__ = [
     "generate_action_name",
     "generate_semantic_action_name",

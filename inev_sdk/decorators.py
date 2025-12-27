@@ -1,7 +1,7 @@
 """Decorator helpers for automatic event emission."""
 
 import functools
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from .client import INEVClient
 
@@ -9,9 +9,9 @@ from .client import INEVClient
 def emit_domain_event(
     entity: str,
     action: str,
-    record_id_attr: Optional[str] = None,
-    state_attr: Optional[str] = None,
-    client: Optional[INEVClient] = None,
+    record_id_attr: str | None = None,
+    state_attr: str | None = None,
+    client: INEVClient | None = None,
 ):
     """Decorator to auto-emit domain events after function execution."""
 
@@ -45,7 +45,7 @@ def emit_domain_event(
 
 
 # Global client management
-_global_client: Optional[INEVClient] = None
+_global_client: INEVClient | None = None
 
 
 def configure(api_key: str, **kwargs):

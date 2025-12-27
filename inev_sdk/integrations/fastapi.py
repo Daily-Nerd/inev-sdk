@@ -16,8 +16,9 @@ Features:
 
 import asyncio
 import json
-from datetime import UTC, datetime
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from datetime import datetime, timezone
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -125,7 +126,7 @@ class INEVMiddleware(BaseHTTPMiddleware):
         )
 
         # Start the client's background flush task
-        self._startup_task: Optional[asyncio.Task] = None
+        self._startup_task: asyncio.Task | None = None
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """
@@ -147,7 +148,7 @@ class INEVMiddleware(BaseHTTPMiddleware):
             await self._client.start()
 
         # Capture request start time for duration calculation
-        start_time = datetime.now(UTC)
+        start_time = datetime.now(timezone.utc)
 
         # Extract request context (before processing)
         action = self.action_extractor(request)
@@ -219,7 +220,7 @@ class INEVMiddleware(BaseHTTPMiddleware):
             source: Source type identifier (e.g., "api-client")
         """
         # Calculate request duration
-        duration_ms = (datetime.now(UTC) - start_time).total_seconds() * 1000
+        duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
         # Build parameters dict with HTTP context
         parameters = {

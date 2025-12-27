@@ -2,5 +2,4 @@
 
 from .fastapi import INEVMiddleware
 
-
 __all__ = ["INEVMiddleware"]

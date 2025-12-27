@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
+
 from inev_sdk.integrations.fastapi import INEVMiddleware
 
 
@@ -347,7 +348,7 @@ class TestDefaultExcludedPaths:
             "/redoc",
             "/favicon.ico",
         ]
-        assert INEVMiddleware.DEFAULT_EXCLUDE_PATHS == expected
+        assert expected == INEVMiddleware.DEFAULT_EXCLUDE_PATHS
 
     @pytest.mark.asyncio
     async def test_docs_excluded_by_default(self, mock_client):
