@@ -2,7 +2,7 @@
 
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import httpx
 
@@ -90,7 +90,7 @@ class INEVClient:
         event_id = str(uuid.uuid4())
         event = {
             "event_id": event_id,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "entity": entity,
             "action": action,
             "record_id": record_id,
@@ -158,7 +158,7 @@ class INEVClient:
             Event ID (UUID string)
         """
         event_id = str(uuid.uuid4())
-        event_timestamp = timestamp or datetime.now(UTC)
+        event_timestamp = timestamp or datetime.now(timezone.utc)
 
         event = {
             "event_id": event_id,
@@ -216,7 +216,7 @@ class INEVClient:
         event_id = str(uuid.uuid4())
         event = {
             "event_id": event_id,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "entity": entity,
             "action": action,
             "record_id": record_id,
