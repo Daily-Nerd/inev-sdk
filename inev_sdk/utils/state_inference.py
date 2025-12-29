@@ -159,14 +159,16 @@ def _infer_state_from_action(action: str) -> str | None:
         "downgrade": "downgraded",
     }
 
-    for verb, state in state_verbs.items():
+    # Sort by verb length (longest first) to handle overlapping verbs
+    # e.g., "deactivate" must be checked before "activate"
+    for verb, state in sorted(state_verbs.items(), key=lambda x: len(x[0]), reverse=True):
         if verb in action_lower:
             return state
 
     return None
 
 
-def infer_from_state_from_method(method: str) -> str | None:
+def infer_from_state_by_method(method: str) -> str | None:
     """Infer from_state based on HTTP method semantics.
 
     For certain methods, we can infer what state the resource was likely in

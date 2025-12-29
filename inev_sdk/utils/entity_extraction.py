@@ -9,7 +9,7 @@ Examples:
     /api/v1/orders/123 → entity="order", record_id="123"
     /api/workspaces/ws_abc/members/usr_456 → entity="member", record_id="usr_456"
     /api/users/42/profile → entity="user", record_id="42"
-    /health → entity=None, record_id=None
+    /health → entity="health", record_id=None
 
 Algorithm:
 1. Remove /api prefix and version segments (v1, v2, etc.)
@@ -49,7 +49,7 @@ def extract_entity_and_record_id(path: str) -> tuple[str | None, str | None]:
         ("user", "42")
 
         >>> extract_entity_and_record_id("/health")
-        (None, None)
+        ("health", None)
     """
     if not path:
         return None, None

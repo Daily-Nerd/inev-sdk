@@ -1,7 +1,7 @@
 """Tests for HTTP state inference."""
 
 from inev_sdk.utils.state_inference import (
-    infer_from_state_from_method,
+    infer_from_state_by_method,
     infer_state_from_http,
 )
 
@@ -123,28 +123,28 @@ class TestInferStateFromHttp:
         assert infer_state_from_http("Post", 201) == "created"
 
 
-class TestInferFromStateFromMethod:
-    """Tests for infer_from_state_from_method function."""
+class TestInferFromStateByMethod:
+    """Tests for infer_from_state_by_method function."""
 
     def test_delete_implies_active(self):
         """Test DELETE implies 'active' from_state."""
-        assert infer_from_state_from_method("DELETE") == "active"
+        assert infer_from_state_by_method("DELETE") == "active"
 
     def test_post_none(self):
         """Test POST cannot infer from_state."""
-        assert infer_from_state_from_method("POST") is None
+        assert infer_from_state_by_method("POST") is None
 
     def test_put_none(self):
         """Test PUT cannot infer from_state."""
-        assert infer_from_state_from_method("PUT") is None
+        assert infer_from_state_by_method("PUT") is None
 
     def test_get_none(self):
         """Test GET cannot infer from_state."""
-        assert infer_from_state_from_method("GET") is None
+        assert infer_from_state_by_method("GET") is None
 
     def test_lowercase_method(self):
         """Test lowercase method works."""
-        assert infer_from_state_from_method("delete") == "active"
+        assert infer_from_state_by_method("delete") == "active"
 
 
 class TestActionBasedStateInference:
@@ -193,3 +193,13 @@ class TestActionBasedStateInference:
     def test_disable_action(self):
         """Test disable action inference."""
         assert infer_state_from_http("PATCH", 200, "disable_feature") == "disabled"
+
+    def test_deactivate_action(self):
+        """Test deactivate action inference (overlapping verb with 'activate')."""
+        # This tests that "deactivate" is matched before "activate"
+        assert infer_state_from_http("POST", 200, "deactivate_user") == "deactivated"
+
+    def test_unpublish_action(self):
+        """Test unpublish action inference (overlapping verb with 'publish')."""
+        # This tests that "unpublish" is matched before "publish"
+        assert infer_state_from_http("POST", 200, "unpublish_article") == "unpublished"
