@@ -426,3 +426,330 @@ class TestDefaultExcludedPaths:
                 # /custom-skip should be excluded
                 await client.get("/custom-skip")
                 mock_client.emit.assert_not_called()
+
+
+# =============================================================================
+# Auto-Extract Entity Tests
+# =============================================================================
+
+
+class TestAutoExtractEntity:
+    """Test automatic entity extraction from URL paths."""
+
+    @pytest.mark.asyncio
+    async def test_auto_extract_entity_enabled_by_default(self, mock_client):
+        """Test that entity is auto-extracted when enabled (default)."""
+        app = FastAPI()
+
+        @app.get("/api/v1/orders/{order_id}")
+        async def get_order(order_id: str):
+            return {"order_id": order_id}
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/api/v1/orders/ord_123")
+                assert response.status_code == 200
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["entity"] == "order"
+            assert call_args["record_id"] == "ord_123"
+
+    @pytest.mark.asyncio
+    async def test_auto_extract_entity_disabled(self, mock_client):
+        """Test that entity is not extracted when disabled."""
+        app = FastAPI()
+
+        @app.get("/api/v1/orders/{order_id}")
+        async def get_order(order_id: str):
+            return {"order_id": order_id}
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+                auto_extract_entity=False,
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/api/v1/orders/ord_123")
+                assert response.status_code == 200
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["entity"] is None
+            assert call_args["record_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_auto_extract_nested_resource(self, mock_client):
+        """Test entity extraction from nested resource paths."""
+        app = FastAPI()
+
+        @app.get("/api/workspaces/{ws_id}/members/{member_id}")
+        async def get_member(ws_id: str, member_id: str):
+            return {"workspace": ws_id, "member": member_id}
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/api/workspaces/ws_abc/members/usr_456")
+                assert response.status_code == 200
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["entity"] == "member"
+            assert call_args["record_id"] == "usr_456"
+
+
+# =============================================================================
+# Auto-Infer State Tests
+# =============================================================================
+
+
+class TestAutoInferState:
+    """Test automatic state inference from HTTP method and status."""
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_post_201(self, mock_client):
+        """Test state inference for POST 201 (created)."""
+        app = FastAPI()
+
+        from fastapi.responses import JSONResponse
+
+        @app.post("/api/v1/orders", status_code=201)
+        async def create_order():
+            return JSONResponse({"order_id": "order_123"}, status_code=201)
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/api/v1/orders", json={"item": "widget"})
+                assert response.status_code == 201
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["to_state"] == "created"
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_put_200(self, mock_client):
+        """Test state inference for PUT 200 (updated)."""
+        app = FastAPI()
+
+        @app.put("/api/v1/orders/{order_id}")
+        async def update_order(order_id: str):
+            return {"order_id": order_id, "updated": True}
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.put("/api/v1/orders/ord_123", json={"item": "updated"})
+                assert response.status_code == 200
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["to_state"] == "updated"
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_delete_204(self, mock_client):
+        """Test state inference for DELETE 204 (deleted)."""
+        app = FastAPI()
+
+        from fastapi.responses import Response
+
+        @app.delete("/api/v1/orders/{order_id}")
+        async def delete_order(order_id: str):
+            return Response(status_code=204)
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.delete("/api/v1/orders/ord_123")
+                assert response.status_code == 204
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["to_state"] == "deleted"
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_get_none(self, mock_client):
+        """Test that GET requests don't infer state (no state change)."""
+        app = FastAPI()
+
+        @app.get("/api/v1/orders")
+        async def get_orders():
+            return {"orders": []}
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.get("/api/v1/orders")
+                assert response.status_code == 200
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["to_state"] is None
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_error_none(self, mock_client):
+        """Test that error responses don't infer state."""
+        app = FastAPI()
+
+        @app.post("/api/v1/orders")
+        async def create_order():
+            raise HTTPException(status_code=400, detail="Bad request")
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/api/v1/orders", json={})
+                assert response.status_code == 400
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["to_state"] is None
+            assert call_args["outcome"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_disabled(self, mock_client):
+        """Test that state is not inferred when disabled."""
+        app = FastAPI()
+
+        from fastapi.responses import JSONResponse
+
+        @app.post("/api/v1/orders", status_code=201)
+        async def create_order():
+            return JSONResponse({"order_id": "order_123"}, status_code=201)
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+                auto_infer_state=False,
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/api/v1/orders", json={"item": "widget"})
+                assert response.status_code == 201
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["to_state"] is None
+
+    @pytest.mark.asyncio
+    async def test_auto_infer_state_patch_with_action(self, mock_client):
+        """Test state inference from action name (e.g., patch_order_confirm)."""
+        app = FastAPI()
+
+        @app.patch("/api/v1/orders/{order_id}/confirm")
+        async def confirm_order(order_id: str):
+            return {"order_id": order_id, "status": "confirmed"}
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.patch("/api/v1/orders/ord_123/confirm")
+                assert response.status_code == 200
+
+            call_args = mock_client.emit.call_args[1]
+            # Action should be patch_order_confirm, which infers "confirmed" state
+            assert call_args["to_state"] == "confirmed"
+
+
+# =============================================================================
+# Combined Features Tests
+# =============================================================================
+
+
+class TestCombinedFeatures:
+    """Test combined auto-extract and auto-infer features."""
+
+    @pytest.mark.asyncio
+    async def test_both_features_enabled(self, mock_client):
+        """Test both auto features working together."""
+        app = FastAPI()
+
+        from fastapi.responses import JSONResponse
+
+        @app.post("/api/v1/orders", status_code=201)
+        async def create_order():
+            return JSONResponse({"order_id": "order_123"}, status_code=201)
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+                auto_extract_entity=True,
+                auto_infer_state=True,
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/api/v1/orders", json={"item": "widget"})
+                assert response.status_code == 201
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["entity"] == "order"
+            assert call_args["to_state"] == "created"
+
+    @pytest.mark.asyncio
+    async def test_both_features_disabled(self, mock_client):
+        """Test both auto features disabled."""
+        app = FastAPI()
+
+        from fastapi.responses import JSONResponse
+
+        @app.post("/api/v1/orders", status_code=201)
+        async def create_order():
+            return JSONResponse({"order_id": "order_123"}, status_code=201)
+
+        with patch("inev_sdk.integrations.fastapi.INEVClient", return_value=mock_client):
+            app.add_middleware(
+                INEVMiddleware,
+                api_key="sk_test_123",
+                project_id="proj_test",
+                auto_extract_entity=False,
+                auto_infer_state=False,
+            )
+
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/api/v1/orders", json={"item": "widget"})
+                assert response.status_code == 201
+
+            call_args = mock_client.emit.call_args[1]
+            assert call_args["entity"] is None
+            assert call_args["record_id"] is None
+            assert call_args["to_state"] is None
