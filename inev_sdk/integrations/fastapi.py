@@ -26,6 +26,8 @@ from starlette.responses import Response
 
 from ..client import INEVClient
 from ..utils.action_naming import generate_action_name
+from ..utils.entity_extraction import extract_entity_and_record_id
+from ..utils.state_inference import infer_state_from_http
 
 
 class INEVMiddleware(BaseHTTPMiddleware):
@@ -92,6 +94,8 @@ class INEVMiddleware(BaseHTTPMiddleware):
         batch_size: int = 100,
         flush_interval: float = 5.0,
         environment: str = "production",
+        auto_extract_entity: bool = True,
+        auto_infer_state: bool = True,
     ):
         """
         Initialize the INEV auto-instrumentation middleware.
@@ -107,6 +111,8 @@ class INEVMiddleware(BaseHTTPMiddleware):
             batch_size: Number of events to batch before sending (default 100)
             flush_interval: Time interval in seconds to flush events (default 5.0)
             environment: Environment tag for events (default "production")
+            auto_extract_entity: Auto-extract entity/record_id from URL (default True)
+            auto_infer_state: Auto-infer to_state from HTTP method+status (default True)
         """
         super().__init__(app)
         self.project_id = project_id
@@ -114,6 +120,8 @@ class INEVMiddleware(BaseHTTPMiddleware):
         self.action_extractor = action_extractor or self._default_action_extractor
         self.auto_enrich = auto_enrich
         self.environment = environment
+        self.auto_extract_entity = auto_extract_entity
+        self.auto_infer_state = auto_infer_state
 
         # Initialize INEV client with batching
         self._client = INEVClient(
@@ -221,15 +229,29 @@ class INEVMiddleware(BaseHTTPMiddleware):
         """
         # Calculate request duration
         duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        path = str(request.url.path)
+        method = request.method
+        status_code = response.status_code if response else 500
 
         # Build parameters dict with HTTP context
         parameters = {
-            "path": str(request.url.path),
-            "method": request.method,
-            "status_code": response.status_code if response else 500,
+            "path": path,
+            "method": method,
+            "status_code": status_code,
             "duration_ms": round(duration_ms, 2),
             "query_params": dict(request.query_params),
         }
+
+        # Auto-extract entity and record_id from URL path (zero-config enrichment)
+        entity: str | None = None
+        record_id: str | None = None
+        if self.auto_extract_entity:
+            entity, record_id = extract_entity_and_record_id(path)
+
+        # Auto-infer to_state from HTTP method + status code
+        to_state: str | None = None
+        if self.auto_infer_state:
+            to_state = infer_state_from_http(method, status_code, action)
 
         # Build context dict
         context = {
@@ -242,11 +264,11 @@ class INEVMiddleware(BaseHTTPMiddleware):
         # Emit event via INEV client (non-blocking batched send)
         try:
             await self._client.emit(
-                entity=None,  # Server-side enrichment will infer this
+                entity=entity,  # Auto-extracted from URL or None
                 action=action,
-                record_id=None,  # Server-side enrichment will infer this
-                from_state=None,  # Server-side enrichment will infer this
-                to_state=None,  # Server-side enrichment will infer this
+                record_id=record_id,  # Auto-extracted from URL or None
+                from_state=None,  # Cannot reliably infer from HTTP context
+                to_state=to_state,  # Auto-inferred from HTTP method+status or None
                 outcome=outcome,
                 error_message=error_message,
                 user_id=user_id,
