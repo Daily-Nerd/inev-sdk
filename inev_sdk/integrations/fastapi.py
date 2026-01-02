@@ -166,8 +166,14 @@ class INEVMiddleware(BaseHTTPMiddleware):
 
         # Process the request and capture outcome
         response = None
-        error_message = None
         outcome = "success"
+        # Structured error fields
+        error_info: dict[str, Any] = {
+            "error_message": None,
+            "error_code": None,
+            "error_category": None,
+            "error_details": None,
+        }
 
         try:
             # Call the next handler in the chain
@@ -176,15 +182,20 @@ class INEVMiddleware(BaseHTTPMiddleware):
             # Determine outcome from status code
             if response.status_code >= 400:
                 outcome = "error"
-                # Extract detailed error message from response body
-                error_message = await self._extract_error_message(response)
+                # Extract structured error info from response body
+                error_info = await self._extract_structured_error(response)
 
             return response
 
         except Exception as e:
             # Request failed with exception
             outcome = "error"
-            error_message = f"{type(e).__name__}: {str(e)}"
+            error_info = {
+                "error_message": f"{type(e).__name__}: {str(e)}",
+                "error_code": None,
+                "error_category": "server",
+                "error_details": None,
+            }
             raise
 
         finally:
@@ -195,7 +206,7 @@ class INEVMiddleware(BaseHTTPMiddleware):
                 outcome=outcome,
                 user_id=user_id,
                 session_id=session_id,
-                error_message=error_message,
+                error_info=error_info,
                 request=request,
                 response=response,
                 source=source,
@@ -208,7 +219,7 @@ class INEVMiddleware(BaseHTTPMiddleware):
         outcome: str,
         user_id: str | None,
         session_id: str | None,
-        error_message: str | None,
+        error_info: dict[str, Any],
         request: Request,
         response: Response | None,
         source: str | None = None,
@@ -222,7 +233,8 @@ class INEVMiddleware(BaseHTTPMiddleware):
             outcome: "success" or "error"
             user_id: User identifier (if available)
             session_id: Session identifier (if available)
-            error_message: Error description (if error)
+            error_info: Structured error info dict with keys:
+                        error_message, error_code, error_category, error_details
             request: Original HTTP request
             response: HTTP response (may be None if exception)
             source: Source type identifier (e.g., "api-client")
@@ -270,7 +282,10 @@ class INEVMiddleware(BaseHTTPMiddleware):
                 from_state=None,  # Cannot reliably infer from HTTP context
                 to_state=to_state,  # Auto-inferred from HTTP method+status or None
                 outcome=outcome,
-                error_message=error_message,
+                error_message=error_info.get("error_message"),
+                error_code=error_info.get("error_code"),
+                error_category=error_info.get("error_category"),
+                error_details=error_info.get("error_details"),
                 user_id=user_id,
                 session_id=session_id,
                 parameters=parameters,
@@ -398,6 +413,16 @@ class INEVMiddleware(BaseHTTPMiddleware):
         """
         return self.STATUS_MESSAGES.get(status_code, f"HTTP {status_code}")
 
+    # Status code to error category mapping
+    STATUS_CATEGORY_MAP = {
+        400: "validation",
+        401: "auth",
+        403: "auth",
+        404: "not_found",
+        422: "validation",
+        429: "rate_limit",
+    }
+
     def _format_validation_error(self, detail: list[dict[str, Any]]) -> str:
         """
         Format FastAPI validation error detail into human-readable message.
@@ -420,6 +445,183 @@ class INEVMiddleware(BaseHTTPMiddleware):
             error_parts.append(f"{loc_str} - {msg}" if loc_str else msg)
 
         return f"Validation Error: {'; '.join(error_parts)}"
+
+    def _infer_error_category(self, status_code: int) -> str:
+        """
+        Infer error category from HTTP status code.
+
+        Args:
+            status_code: HTTP status code
+
+        Returns:
+            str: Error category (validation, auth, not_found, rate_limit, server)
+        """
+        if status_code in self.STATUS_CATEGORY_MAP:
+            return self.STATUS_CATEGORY_MAP[status_code]
+        if status_code >= 500:
+            return "server"
+        return "validation"  # Default for 4xx
+
+    def _parse_error_response(self, body: Any, status_code: int) -> dict[str, Any]:
+        """
+        Parse error response body to extract structured error fields.
+
+        Handles multiple error formats:
+        - Standard: {"code": "...", "message": "...", "details": {...}}
+        - FastAPI validation: {"detail": [{"loc": [...], "msg": "...", "type": "..."}]}
+        - Django REST Framework: {"field": ["error"]}
+        - GraphQL: {"errors": [{"message": "..."}]}
+        - Simple: {"detail": "..."}, {"message": "..."}, {"error": "..."}
+
+        Args:
+            body: Parsed JSON body (dict or other)
+            status_code: HTTP status code
+
+        Returns:
+            dict with keys: error_message, error_code, error_category, error_details
+        """
+        result = {
+            "error_message": self._get_error_message(status_code),
+            "error_code": None,
+            "error_category": self._infer_error_category(status_code),
+            "error_details": None,
+        }
+
+        # Handle non-dict body
+        if not isinstance(body, dict):
+            if body:
+                result["error_message"] = str(body)
+            return result
+
+        # Handle empty body
+        if not body:
+            return result
+
+        # === Standard format: {"code": "...", "message": "...", "details": {...}} ===
+        if "code" in body and "message" in body:
+            result["error_code"] = body["code"]
+            result["error_message"] = body["message"]
+            if "details" in body:
+                result["error_details"] = body["details"]
+            return result
+
+        # === FastAPI validation errors: {"detail": [...]} ===
+        if "detail" in body:
+            detail = body["detail"]
+            if isinstance(detail, list):
+                # FastAPI validation error format
+                result["error_code"] = "VALIDATION_ERROR"
+                result["error_message"] = self._format_validation_error(detail)
+                result["error_category"] = "validation"
+                result["error_details"] = {"validation_errors": detail}
+                return result
+            elif isinstance(detail, str):
+                result["error_message"] = detail
+                return result
+            elif isinstance(detail, dict):
+                result["error_message"] = detail.get("message") or detail.get("msg") or str(detail)
+                return result
+
+        # === GraphQL errors: {"errors": [...]} ===
+        if "errors" in body and isinstance(body["errors"], list):
+            errors = body["errors"]
+            if errors:
+                messages = [e.get("message", "") for e in errors if e.get("message")]
+                if messages:
+                    result["error_message"] = "; ".join(messages)
+                result["error_details"] = {"graphql_errors": errors}
+                # Extract code from extensions if available
+                for error in errors:
+                    if isinstance(error, dict) and "extensions" in error:
+                        ext = error["extensions"]
+                        if isinstance(ext, dict) and "code" in ext:
+                            result["error_code"] = ext["code"]
+                            break
+            return result
+
+        # === Django REST Framework: {"field": ["error"]} ===
+        # Check if all values are lists of strings (DRF pattern)
+        if body and all(isinstance(v, list) for v in body.values()):
+            field_errors = {}
+            error_messages = []
+            for field, errors in body.items():
+                if isinstance(errors, list):
+                    field_errors[field] = errors
+                    for err in errors:
+                        if isinstance(err, str):
+                            error_messages.append(f"{field}: {err}")
+            if field_errors:
+                result["error_category"] = "validation"
+                result["error_details"] = {"field_errors": field_errors}
+                if error_messages:
+                    result["error_message"] = "; ".join(error_messages)
+                return result
+
+        # === Nested error object: {"error": {"code": "...", "message": "..."}} ===
+        if "error" in body:
+            error = body["error"]
+            if isinstance(error, dict):
+                if "code" in error:
+                    result["error_code"] = error["code"]
+                if "message" in error:
+                    result["error_message"] = error["message"]
+                if "details" in error:
+                    result["error_details"] = error["details"]
+                return result
+            elif isinstance(error, str):
+                result["error_message"] = error
+                return result
+
+        # === Simple message: {"message": "..."} ===
+        if "message" in body:
+            result["error_message"] = body["message"]
+            return result
+
+        return result
+
+    async def _extract_structured_error(self, response: Response) -> dict[str, Any]:
+        """
+        Extract structured error information from response body.
+
+        Args:
+            response: HTTP response
+
+        Returns:
+            dict with keys: error_message, error_code, error_category, error_details
+        """
+        status_code = response.status_code
+
+        # Default result
+        result = {
+            "error_message": self._get_error_message(status_code),
+            "error_code": None,
+            "error_category": self._infer_error_category(status_code),
+            "error_details": None,
+        }
+
+        try:
+            # Get response body
+            if hasattr(response, "body"):
+                body = response.body
+                if isinstance(body, bytes):
+                    body_str = body.decode("utf-8")
+                else:
+                    body_str = str(body)
+
+                # Try to parse as JSON
+                try:
+                    error_data = json.loads(body_str)
+                    return self._parse_error_response(error_data, status_code)
+                except json.JSONDecodeError:
+                    # Not JSON, use body as message if short enough
+                    if body_str and len(body_str) < 200:
+                        result["error_message"] = body_str
+
+        except Exception:
+            # If anything fails, use defaults
+            pass
+
+        return result
 
     async def _extract_error_message(self, response: Response) -> str:
         """
