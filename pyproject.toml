@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "inev-sdk"
-version = "0.2.0"
+version = "0.3.0"
 description = "INEV SDK for domain event capture and Intentionality Leakage Analysis"
 readme = "README.md"
 requires-python = ">=3.10"
