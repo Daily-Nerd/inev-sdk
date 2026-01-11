@@ -18,7 +18,7 @@ formatters:
     - gofmt
     - goimports
 
-settings:
+linters-settings:
   goimports:
     local-prefixes:
       - github.com/Daily-Nerd/inev-sdk-go
@@ -26,6 +26,5 @@ settings:
     locale: US
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
