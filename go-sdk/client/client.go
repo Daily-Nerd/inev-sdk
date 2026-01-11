@@ -49,12 +49,12 @@ func DefaultConfig() Config {
 type Client struct {
 	config Config
 
-	mu       sync.Mutex
-	batch    []*Event
-	closed   bool
-	closeCh  chan struct{}
-	flushWg  sync.WaitGroup
-	httpCli  *http.Client
+	mu      sync.Mutex
+	batch   []*Event
+	closed  bool
+	closeCh chan struct{}
+	flushWg sync.WaitGroup
+	httpCli *http.Client
 }
 
 // New creates a new INEV client with the given API key and options.
@@ -218,7 +218,9 @@ func (c *Client) sendEvents(ctx context.Context, events []*Event) error {
 	if err != nil {
 		return fmt.Errorf("failed to send events: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("backend returned status %d", resp.StatusCode)

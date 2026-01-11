@@ -23,7 +23,7 @@
 
 ### Goals
 - Primary objective 1
-- Primary objective 2  
+- Primary objective 2
 - Success criteria
 
 ### Non-Goals
@@ -140,19 +140,19 @@ interface [ComponentName]Service {
 | POST | /api/resource | CreateRequest | Resource | 400, 409, 500 |
 
 ##### Event Contract
-- Published events:  
-- Subscribed events:  
+- Published events:
+- Subscribed events:
 - Ordering / delivery guarantees:
 
 ##### Batch / Job Contract
-- Trigger:  
-- Input / validation:  
-- Output / destination:  
+- Trigger:
+- Input / validation:
+- Output / destination:
 - Idempotency & recovery:
 
 ##### State Management
-- State model:  
-- Persistence & consistency:  
+- State model:
+- Persistence & consistency:
 - Concurrency strategy:
 
 **Implementation Notes**
@@ -235,7 +235,7 @@ Concrete error handling patterns and recovery mechanisms for each error type.
 
 ### Error Categories and Responses
 **User Errors** (4xx): Invalid input → field-level validation; Unauthorized → auth guidance; Not found → navigation help
-**System Errors** (5xx): Infrastructure failures → graceful degradation; Timeouts → circuit breakers; Exhaustion → rate limiting  
+**System Errors** (5xx): Infrastructure failures → graceful degradation; Timeouts → circuit breakers; Exhaustion → rate limiting
 **Business Logic Errors** (422): Rule violations → condition explanations; State conflicts → transition guidance
 
 **Process Flow Visualization** (when complex business logic exists):

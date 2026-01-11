@@ -61,28 +61,28 @@ func InferStateFromAction(action string) string {
 	// Check each part for a state-indicating verb
 	stateVerbs := map[string]string{
 		// Lifecycle states
-		"create":     "created",
-		"created":    "created",
-		"update":     "updated",
-		"updated":    "updated",
-		"delete":     "deleted",
-		"deleted":    "deleted",
-		"remove":     "removed",
-		"removed":    "removed",
-		"archive":    "archived",
-		"archived":   "archived",
-		"unarchive":  "unarchived",
-		"restore":    "restored",
+		"create":    "created",
+		"created":   "created",
+		"update":    "updated",
+		"updated":   "updated",
+		"delete":    "deleted",
+		"deleted":   "deleted",
+		"remove":    "removed",
+		"removed":   "removed",
+		"archive":   "archived",
+		"archived":  "archived",
+		"unarchive": "unarchived",
+		"restore":   "restored",
 
 		// Approval workflow
-		"confirm":    "confirmed",
-		"confirmed":  "confirmed",
-		"approve":    "approved",
-		"approved":   "approved",
-		"reject":     "rejected",
-		"rejected":   "rejected",
-		"cancel":     "cancelled",
-		"cancelled":  "cancelled",
+		"confirm":   "confirmed",
+		"confirmed": "confirmed",
+		"approve":   "approved",
+		"approved":  "approved",
+		"reject":    "rejected",
+		"rejected":  "rejected",
+		"cancel":    "cancelled",
+		"cancelled": "cancelled",
 
 		// Activation states
 		"activate":   "activated",
@@ -98,24 +98,24 @@ func InferStateFromAction(action string) string {
 		"disabled":   "disabled",
 
 		// Progress states
-		"start":      "started",
-		"started":    "started",
-		"stop":       "stopped",
-		"stopped":    "stopped",
-		"pause":      "paused",
-		"paused":     "paused",
-		"complete":   "completed",
-		"completed":  "completed",
-		"finish":     "finished",
-		"finished":   "finished",
+		"start":     "started",
+		"started":   "started",
+		"stop":      "stopped",
+		"stopped":   "stopped",
+		"pause":     "paused",
+		"paused":    "paused",
+		"complete":  "completed",
+		"completed": "completed",
+		"finish":    "finished",
+		"finished":  "finished",
 
 		// Submission states
-		"submit":     "submitted",
-		"submitted":  "submitted",
-		"publish":    "published",
-		"published":  "published",
-		"unpublish":  "unpublished",
-		"draft":      "draft",
+		"submit":    "submitted",
+		"submitted": "submitted",
+		"publish":   "published",
+		"published": "published",
+		"unpublish": "unpublished",
+		"draft":     "draft",
 
 		// Verification states
 		"verify":     "verified",
@@ -124,22 +124,22 @@ func InferStateFromAction(action string) string {
 		"invalidate": "invalidated",
 
 		// E-commerce states
-		"ship":       "shipped",
-		"shipped":    "shipped",
-		"deliver":    "delivered",
-		"delivered":  "delivered",
-		"refund":     "refunded",
-		"refunded":   "refunded",
-		"pay":        "paid",
-		"paid":       "paid",
+		"ship":      "shipped",
+		"shipped":   "shipped",
+		"deliver":   "delivered",
+		"delivered": "delivered",
+		"refund":    "refunded",
+		"refunded":  "refunded",
+		"pay":       "paid",
+		"paid":      "paid",
 
 		// Expiration states
-		"expire":     "expired",
-		"expired":    "expired",
-		"renew":      "renewed",
-		"renewed":    "renewed",
-		"extend":     "extended",
-		"extended":   "extended",
+		"expire":   "expired",
+		"expired":  "expired",
+		"renew":    "renewed",
+		"renewed":  "renewed",
+		"extend":   "extended",
+		"extended": "extended",
 
 		// Upgrade states
 		"upgrade":    "upgraded",
@@ -148,16 +148,16 @@ func InferStateFromAction(action string) string {
 		"downgraded": "downgraded",
 
 		// Assignment states
-		"assign":     "assigned",
-		"assigned":   "assigned",
-		"unassign":   "unassigned",
-		"transfer":   "transferred",
+		"assign":   "assigned",
+		"assigned": "assigned",
+		"unassign": "unassigned",
+		"transfer": "transferred",
 
 		// Lock states
-		"lock":       "locked",
-		"locked":     "locked",
-		"unlock":     "unlocked",
-		"unlocked":   "unlocked",
+		"lock":     "locked",
+		"locked":   "locked",
+		"unlock":   "unlocked",
+		"unlocked": "unlocked",
 	}
 
 	for _, part := range parts {

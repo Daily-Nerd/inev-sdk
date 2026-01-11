@@ -140,10 +140,10 @@ func TestInferFullTransition(t *testing.T) {
 
 func TestStatusHelpers(t *testing.T) {
 	tests := []struct {
-		code         int
-		isSuccess    bool
-		isClientErr  bool
-		isServerErr  bool
+		code        int
+		isSuccess   bool
+		isClientErr bool
+		isServerErr bool
 	}{
 		{200, true, false, false},
 		{201, true, false, false},

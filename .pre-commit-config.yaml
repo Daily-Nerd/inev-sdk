@@ -1,63 +1,56 @@
-# Pre-commit configuration for inev-sdk
-# Install: uv run pre-commit install
-# Run manually: uv run pre-commit run --all-files
-
-default_language_version:
-  python: python3.13
-
 repos:
-  # =============================================================================
-  # General file hygiene
-  # =============================================================================
+  # General hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-toml
-      - id: check-json
       - id: check-added-large-files
-        args: [--maxkb=500]
       - id: check-merge-conflict
-      - id: check-case-conflict
-      - id: detect-private-key
-      - id: debug-statements
 
-  # =============================================================================
-  # Python - Ruff (linting + formatting)
-  # =============================================================================
+  # Python hooks
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+    rev: v0.3.4
     hooks:
-      # Linter
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
-        types_or: [python, pyi]
-      # Formatter
+        args: [--fix]
       - id: ruff-format
-        types_or: [python, pyi]
 
-  # =============================================================================
-  # Local hooks
-  # =============================================================================
+  # Go hooks (local - requires Go installed)
   - repo: local
     hooks:
-      - id: pytest-check
-        name: Run pytest (pre-push only)
-        entry: uv run pytest tests/ -x -q --tb=short
+      - id: go-fmt
+        name: go fmt
+        entry: bash -c 'cd go-sdk && go fmt ./...'
         language: system
+        files: \.go$
         pass_filenames: false
-        stages: [pre-push]
 
-# =============================================================================
-# CI configuration
-# =============================================================================
-ci:
-  autofix_commit_msg: |
-    [pre-commit.ci] auto fixes
+      - id: go-vet
+        name: go vet
+        entry: bash -c 'cd go-sdk && go vet ./...'
+        language: system
+        files: \.go$
+        pass_filenames: false
 
-  autofix_prs: true
-  autoupdate_schedule: weekly
-  skip: [pytest-check]  # Skip local hooks in CI
+      - id: go-mod-tidy
+        name: go mod tidy
+        entry: bash -c 'cd go-sdk && go mod tidy'
+        language: system
+        files: (\.go$|go\.mod|go\.sum)
+        pass_filenames: false
+
+      - id: go-test
+        name: go test
+        entry: bash -c 'cd go-sdk && go test ./...'
+        language: system
+        files: \.go$
+        pass_filenames: false
+
+      - id: golangci-lint
+        name: golangci-lint
+        entry: bash -c 'cd go-sdk && golangci-lint run --config=.golangci.yml'
+        language: system
+        files: \.go$
+        pass_filenames: false
