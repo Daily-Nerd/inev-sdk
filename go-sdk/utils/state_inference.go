@@ -81,8 +81,8 @@ func InferStateFromAction(action string) string {
 		"approved":  "approved",
 		"reject":    "rejected",
 		"rejected":  "rejected",
-		"cancel":    "cancelled",
-		"cancelled": "cancelled",
+		"cancel":    "canceled",
+		"canceled":  "canceled",
 
 		// Activation states
 		"activate":   "activated",

@@ -13,18 +13,16 @@ linters:
     - ineffassign
     - misspell
 
+  settings:
+    misspell:
+      locale: US
+
 formatters:
   enable:
     - gofmt
     - goimports
 
-linters-settings:
-  goimports:
-    local-prefixes:
-      - github.com/Daily-Nerd/inev-sdk-go
-  misspell:
-    locale: US
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Daily-Nerd/inev-sdk-go

@@ -63,7 +63,7 @@ func TestInferStateFromAction(t *testing.T) {
 		{"confirm_order", "confirmed"},
 		{"approve_request", "approved"},
 		{"reject_application", "rejected"},
-		{"cancel_subscription", "cancelled"},
+		{"cancel_subscription", "canceled"},
 
 		// Activation
 		{"activate_account", "activated"},
