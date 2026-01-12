@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     name: Test
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: go-sdk
@@ -32,7 +32,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: test
 
     steps:
@@ -52,7 +52,7 @@ jobs:
 
   release:
     name: Create Release
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [test, lint]
 
     steps:
