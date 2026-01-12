@@ -7,8 +7,39 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  # Detect which components changed
+  changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      go: ${{ steps.filter.outputs.go }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'src/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+            go:
+              - 'go-sdk/**'
+
+  # ─────────────────────────────────────────────
+  # Python SDK Jobs
+  # ─────────────────────────────────────────────
+
+  python-test:
+    name: Python Test
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
@@ -25,14 +56,175 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
+        run: uv pip install --system -e ".[dev]"
 
       - name: Run tests
-        run: |
-          uv run pytest tests/ -v --tb=short
+        run: uv run pytest tests/ -v --tb=short
 
-      - name: Check package can be built
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Run ruff
         run: |
-          uv build
-          ls -lh dist/
+          uv run ruff check src/ tests/
+          uv run ruff format --check src/ tests/
+
+  python-build:
+    name: Python Build
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build package
+        run: uv build
+
+      - name: Verify package
+        run: ls -lh dist/
+
+  # ─────────────────────────────────────────────
+  # Go SDK Jobs
+  # ─────────────────────────────────────────────
+
+  go-test:
+    name: Go Test
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    defaults:
+      run:
+        working-directory: go-sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('go-sdk/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: go-sdk/coverage.out
+          flags: go-sdk
+          fail_ci_if_error: false
+
+  go-lint:
+    name: Go Lint
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1.6
+          working-directory: go-sdk
+          args: --timeout=5m
+
+  go-build:
+    name: Go Build
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
+    defaults:
+      run:
+        working-directory: go-sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Build
+        run: go build ./...
+
+  # ─────────────────────────────────────────────
+  # Summary
+  # ─────────────────────────────────────────────
+
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [changes, python-test, python-lint, python-build, go-test, go-lint, go-build]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          echo "Python changed: ${{ needs.changes.outputs.python }}"
+          echo "Go changed: ${{ needs.changes.outputs.go }}"
+
+          # Check Python jobs if Python changed
+          if [ "${{ needs.changes.outputs.python }}" == "true" ]; then
+            if [ "${{ needs.python-test.result }}" != "success" ] || \
+               [ "${{ needs.python-lint.result }}" != "success" ] || \
+               [ "${{ needs.python-build.result }}" != "success" ]; then
+              echo "Python CI failed"
+              exit 1
+            fi
+          fi
+
+          # Check Go jobs if Go changed
+          if [ "${{ needs.changes.outputs.go }}" == "true" ]; then
+            if [ "${{ needs.go-test.result }}" != "success" ] || \
+               [ "${{ needs.go-lint.result }}" != "success" ] || \
+               [ "${{ needs.go-build.result }}" != "success" ]; then
+              echo "Go CI failed"
+              exit 1
+            fi
+          fi
+
+          echo "CI passed!"
