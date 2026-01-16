@@ -211,7 +211,7 @@ func (c *Client) sendEvents(ctx context.Context, events []*Event) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+	req.Header.Set("X-API-Key", c.config.APIKey)
 	req.Header.Set("X-INEV-SDK", c.config.Source)
 
 	resp, err := c.httpCli.Do(req)
