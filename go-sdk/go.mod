@@ -1,4 +1,4 @@
-module github.com/Daily-Nerd/inev-sdk-go
+module github.com/Daily-Nerd/inev-sdk/go-sdk
 
 go 1.21
 

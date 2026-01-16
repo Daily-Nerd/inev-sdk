@@ -12,8 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/Daily-Nerd/inev-sdk-go/client"
-	"github.com/Daily-Nerd/inev-sdk-go/utils"
+	"github.com/Daily-Nerd/inev-sdk/go-sdk/client"
+	"github.com/Daily-Nerd/inev-sdk/go-sdk/utils"
 )
 
 // contextKey is a custom type for context keys to avoid collisions.
