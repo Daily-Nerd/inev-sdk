@@ -62,7 +62,7 @@ func NewEvent(action string, outcome Outcome, opts ...EventOption) *Event {
 		Action:      action,
 		Outcome:     outcome,
 		Environment: "production",
-		Source:      "inev-go-sdk",
+		Source:      "", // Will be set from client config in Emit
 		Parameters:  make(map[string]interface{}),
 		Extra:       make(map[string]interface{}),
 	}
