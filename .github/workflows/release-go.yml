@@ -88,14 +88,14 @@ jobs:
           echo "### Installation" >> release-notes.md
           echo "" >> release-notes.md
           echo "\`\`\`bash" >> release-notes.md
-          echo "go get github.com/Daily-Nerd/inev-sdk-go@${{ steps.version.outputs.version }}" >> release-notes.md
+          echo "go get github.com/Daily-Nerd/inev-sdk/go-sdk@go/${{ steps.version.outputs.version }}" >> release-notes.md
           echo "\`\`\`" >> release-notes.md
           echo "" >> release-notes.md
           echo "### Usage" >> release-notes.md
           echo "" >> release-notes.md
           echo "\`\`\`go" >> release-notes.md
-          echo 'import "github.com/Daily-Nerd/inev-sdk-go/client"' >> release-notes.md
-          echo 'import inevchi "github.com/Daily-Nerd/inev-sdk-go/integrations/chi"' >> release-notes.md
+          echo 'import "github.com/Daily-Nerd/inev-sdk/go-sdk/client"' >> release-notes.md
+          echo 'import inevchi "github.com/Daily-Nerd/inev-sdk/go-sdk/integrations/chi"' >> release-notes.md
           echo "\`\`\`" >> release-notes.md
 
       - name: Create Release
@@ -109,5 +109,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Note: Go modules are automatically available via GitHub tags
-      # Users can install with: go get github.com/Daily-Nerd/inev-sdk-go@go/v0.1.0
-      # For cleaner versioning, consider using a separate repo or git subtree
+      # Users can install with: go get github.com/Daily-Nerd/inev-sdk/go-sdk@go/v0.1.0
